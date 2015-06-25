@@ -2,8 +2,6 @@ Defaults:
     Server IP:
     Server PORT: 8080
 
-request_type {IMC=0, FACE, DIG, ASR, POS, NER, CHK, SRL, PT0, VBS};
-
 Communication Protocol:
 Client should execute the following in specific order
 1. Connect to the server
