@@ -16,10 +16,8 @@ endif
 LINK_FLAGS = $(LIBRARY_DIRS) \
 						 -lopencv_core \
 						 -lopencv_highgui \
-						 -lopencv_imgproc \
-						 -lopencv_objdetect \
+						 -lopencv_imgcodecs \
 						 $(COMMON)/libtonic.a \
-						 libflandmark_static.a \
 						 -lboost_program_options \
 						 -lboost_filesystem \
 						 -lboost_system \

@@ -23,7 +23,6 @@
 #include "opencv2/opencv.hpp"
 #include "boost/program_options.hpp"
 #include "caffe/caffe.hpp"
-#include "align.h"
 #include "socket.h"
 #include "tonic.h"
 
@@ -101,9 +100,9 @@ int main(int argc, char** argv) {
     app.socketfd = CLIENT_init((char*)app.hostname.c_str(), app.portno, debug);
     if (app.socketfd < 0) exit(0);
   } else {
-    app.net = new Net<float>(app.network);
+    app.net = new Net<float>(app.network, caffe::TEST);
     app.net->CopyTrainedLayersFrom(app.weights);
-    Caffe::set_phase(Caffe::TEST);
+    // Caffe::set_phase(Caffe::TEST);
     if (app.gpu)
       Caffe::set_mode(Caffe::GPU);
     else
@@ -152,16 +151,6 @@ int main(int argc, char** argv) {
   if (app.pl.num < 1) LOG(FATAL) << "No images read!";
 
   vector<pair<string, Mat> >::iterator it;
-  // align facial recognition image
-  if (app.task == "face" && vm["align"].as<bool>()) {
-    for (it = imgs.begin(); it != imgs.end(); ++it) {
-      LOG(INFO) << "Aligning: " << it->first << endl;
-      preprocess(it->second, vm["flandmark"].as<string>(),
-                 vm["haar"].as<string>());
-      // comment in save + view aligned image
-      // imwrite(it->first+"_a", it->second);
-    }
-  }
 
   // prepare data into array
   app.pl.data = (float*)malloc(app.pl.num * app.pl.size * sizeof(float));
