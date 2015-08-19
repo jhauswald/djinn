@@ -55,7 +55,7 @@ po::variables_map parse_opts(int ac, char** av) {
           "portno,p", po::value<int>()->default_value(8080), "Server port")
 
       // facial recognition flags
-      ("align,l", po::value<bool>()->default_value(true),
+      ("align,l", po::value<bool>()->default_value(false),
        "(face) align images before inference?")(
           "haar,a", po::value<string>()->default_value("data/haar.xml"),
           "(face) Haar Cascade model")(
