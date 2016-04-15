@@ -19,6 +19,7 @@
 #include <fstream>
 #include <stdio.h>
 #include <sys/time.h>
+#include <chrono>
 
 #include "opencv2/opencv.hpp"
 #include "boost/program_options.hpp"
@@ -31,7 +32,10 @@ using namespace std;
 using namespace cv;
 
 namespace po = boost::program_options;
-struct timeval tv1, tv2;
+
+typedef std::chrono::high_resolution_clock Time;
+typedef std::chrono::milliseconds ms;
+typedef std::chrono::duration<float> fsec;
 
 po::variables_map parse_opts(int ac, char** av) {
   // Declare the supported options.
@@ -49,10 +53,10 @@ po::variables_map parse_opts(int ac, char** av) {
       "List of input images (1 jpg/line)")
 
       ("djinn,d", po::value<bool>()->default_value(false),
-       "Use DjiNN service?")("hostname,o",
-                             po::value<string>()->default_value("localhost"),
-                             "Server IP addr")(
-          "portno,p", po::value<int>()->default_value(8080), "Server port")
+       "Use DjiNN service?")
+      ("fname,m",po::value<string>()->default_value("/dev/null"),"output file location")
+      ("hostname,o",po::value<string>()->default_value("localhost"),"Server IP addr")
+        ("portno,p", po::value<int>()->default_value(8080), "Server port")
 
       // facial recognition flags
       ("align,l", po::value<bool>()->default_value(true),
@@ -79,6 +83,8 @@ po::variables_map parse_opts(int ac, char** av) {
 }
 
 int main(int argc, char** argv) {
+  // google::InitGoogleLogging(argv[0]);
+  // google::ParseCommandLineFlags(&argc, &argv, true);
   po::variables_map vm = parse_opts(argc, argv);
 
   bool debug = vm["debug"].as<bool>();
@@ -95,15 +101,16 @@ int main(int argc, char** argv) {
   app.djinn = vm["djinn"].as<bool>();
   app.gpu = vm["gpu"].as<bool>();
 
+  caffe::Phase phase = 1;
+
   if (app.djinn) {
     app.hostname = vm["hostname"].as<string>();
     app.portno = vm["portno"].as<int>();
     app.socketfd = CLIENT_init((char*)app.hostname.c_str(), app.portno, debug);
     if (app.socketfd < 0) exit(0);
   } else {
-    app.net = new Net<float>(app.network);
+    app.net = new Net<float>(app.network, phase);
     app.net->CopyTrainedLayersFrom(app.weights);
-    Caffe::set_phase(Caffe::TEST);
     if (app.gpu)
       Caffe::set_mode(Caffe::GPU);
     else
@@ -183,6 +190,20 @@ int main(int argc, char** argv) {
     ++img_count;
   }
 
+  // warmup
+  auto t0 = Time::now();
+  float loss;
+  vector<Blob<float>*> in_blobs = app.net->input_blobs();
+  in_blobs[0]->set_cpu_data((float*)app.pl.data);
+  vector<Blob<float>*> out_blobs = app.net->ForwardPrefilled(&loss);
+  memcpy(preds, out_blobs[0]->cpu_data(), app.pl.num * sizeof(float));
+  auto t1 = Time::now();
+
+  fsec fs = t1 - t0;
+  ms d = std::chrono::duration_cast<ms>(fs);
+  LOG(INFO) << "Warmup time: " << d.count() << "ms\n";;
+
+  t0 = Time::now();
   if (app.djinn) {
     SOCKET_send(app.socketfd, (char*)&app.pl.req_name, MAX_REQ_SIZE, debug);
 
@@ -205,12 +226,21 @@ int main(int argc, char** argv) {
     vector<Blob<float>*> out_blobs = app.net->ForwardPrefilled(&loss);
     memcpy(preds, out_blobs[0]->cpu_data(), app.pl.num * sizeof(float));
   }
+  t1 = Time::now();
 
+  fs = t1 - t0;
+  d = std::chrono::duration_cast<ms>(fs);
   for (it = imgs.begin(); it != imgs.end(); it++) {
     LOG(INFO) << "Image: " << it->first
-              << " class: " << preds[distance(imgs.begin(), it)] << endl;
-    ;
+              << " class: " << preds[distance(imgs.begin(), it)];
   }
+  std::ofstream ofs;
+  LOG(INFO) << vm["fname"].as<string>();
+  ofs.open (vm["fname"].as<string>(), std::ofstream::out | std::ofstream::app);
+
+  ofs << vm["task"].as<string>() << "," << d.count() << "\n";;
+
+  ofs.close();
 
   if (!app.djinn) free(app.net);
   free(app.pl.data);

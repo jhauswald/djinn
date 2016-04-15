@@ -7,7 +7,8 @@ CXX_FLAGS  = -O3 \
 						 -fpermissive \
 						 -I$(COMMON)/include \
 						 -I$(CAFFE)/include \
-						 -I$(CUDA)/include
+						 -I$(CUDA)/include \
+						 -std=c++11
 
 ifeq ($(CPU_ONLY), 1)
 	CXX_FLAGS  += -DCPU_ONLY
@@ -24,6 +25,7 @@ LINK_FLAGS = $(LIBRARY_DIRS) \
 						 -lboost_filesystem \
 						 -lboost_system \
 						 -lglog \
+						 -lgflags \
 						 -lrt \
 						 -lpthread \
 						 $(CAFFE)/lib/libcaffe.so
